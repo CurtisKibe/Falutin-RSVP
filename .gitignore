@@ -1,0 +1,39 @@
+# ==========================================
+#  FALUTIN MASTER GITIGNORE
+# ==========================================
+
+# --- 1. GLOBAL SECRETS (Crucial) ---
+# These patterns protect .env files in ANY folder (root, api, web, studio)
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# --- 2. DEPENDENCIES (Massive Files) ---
+# Ignores node_modules in web/ and studio/
+**/node_modules
+**/npm-debug.log
+**/yarn-error.log
+**/package-lock.json  # Optional: keep if you want to lock versions, ignore if causing conflicts
+
+# --- 3. NEXT.JS (Web Folder) ---
+**/.next/
+**/out/
+**/.vercel
+**/build
+
+# --- 4. SANITY (Studio Folder) ---
+**/dist/
+
+# --- 5. PYTHON (API Folder) ---
+# This part specifically protects your api/ folder
+**/__pycache__/
+**/*.py[cod]
+**/venv/
+**/.venv/
+**/env/
+
+# --- 6. SYSTEM JUNK ---
+.DS_Store
+Thumbs.db
