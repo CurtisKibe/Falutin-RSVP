@@ -38,10 +38,13 @@ export default function AdminChatBot() {
         content: m.text
       }));
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin-chat`, {
+      const res = await fetch('/api/chat', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: apiHistory }), 
+        body: JSON.stringify({
+            history: apiHistory,
+            isAdmin: true,
+          }), 
       });
       
       const data = await res.json();

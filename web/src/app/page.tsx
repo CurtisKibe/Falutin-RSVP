@@ -24,14 +24,19 @@ export default function HomePage() {
   const [screenings, setScreenings] = useState<Screening[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- DATA FETCHING (Client-Side) ---
+  // --- DATA FETCHING (Optimized) ---
   useEffect(() => {
     async function fetchData() {
       const query = `*[_type == "screening" && date > now()] | order(date asc) {
         _id, date, price, locationName,
         movie->{ title, poster, description }
       }`;
-      const data = await client.fetch(query);
+      
+      // 👇 UPDATED: Added caching options for better performance
+      const data = await client.fetch(query, {}, {
+        next: { revalidate: 60 } // Checks for new data every 60s
+      });
+      
       setScreenings(data);
       setLoading(false);
     }
