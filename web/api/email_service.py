@@ -1,21 +1,15 @@
 import resend
 import os
-from dotenv import load_dotenv
-
-# 1. Loads environment variables from .env file
-load_dotenv()
-
-# 2. Fetches the key safely
-api_key = os.getenv("RESEND_API_KEY")
-
-# 3. Safety Check: Stops execution if key is missing
-if not api_key:
-    raise ValueError("CRITICAL ERROR: RESEND_API_KEY is missing from environment variables.")
-
-resend.api_key = api_key
 
 def send_ticket_email(to_email: str, movie_title: str, date: str, ticket_id: str, poster_url: str):
     try:
+        api_key = os.getenv("RESEND_API_KEY")
+        if not api_key:
+            print("EMAIL ERROR: RESEND_API_KEY is missing.")
+            return False
+            
+        resend.api_key = api_key
+        
         print(f"DEBUG: Sending email to {to_email}...")
         
         html_content = f"""
