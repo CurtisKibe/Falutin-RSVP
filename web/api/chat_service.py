@@ -1,25 +1,19 @@
 import os
-from dotenv import load_dotenv
 from groq import Groq
-from app.database import supabase
-
-# 1. Loads environment variables
-load_dotenv()
-
-# 2. Fetches the key safely
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-# 3. Safety Check
-if not GROQ_API_KEY:
-    raise ValueError("CRITICAL ERROR: GROQ_API_KEY is missing from environment variables.")
-
-client = Groq(api_key=GROQ_API_KEY)
 
 def get_ai_response(history: list, movie_context: str):
     """
     FELLINI: The Public-Facing Concierge.
     """
     try:
+        # Initializes only when needed
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            print("Error: GROQ_API_KEY not found.")
+            return "I'm having trouble connecting to the cinema archive."
+            
+        client = Groq(api_key=api_key)
+
         system_prompt = f"""
         ### SYSTEM INSTRUCTIONS ###
         **ROLE & PERSONA**
@@ -65,9 +59,11 @@ def get_ai_response(history: list, movie_context: str):
         # Builds the message chain
         messages = [{"role": "system", "content": system_prompt}]
         
-        # Appends history
+        # Appends history (Fixed for Flask Dictionary format)
         for msg in history:
-            messages.append({"role": msg.role, "content": msg.content})
+            role = msg.get('role') if isinstance(msg, dict) else getattr(msg, 'role', 'user')
+            content = msg.get('content') if isinstance(msg, dict) else getattr(msg, 'content', '')
+            messages.append({"role": role, "content": content})
 
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
@@ -89,6 +85,12 @@ def get_admin_ai_response(history: list):
     Focuses on Dashboard help and Film Curation/Planning.
     """
     try:
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            return "System Error: API Key missing."
+            
+        client = Groq(api_key=api_key)
+
         system_prompt = """
         ### SYSTEM INSTRUCTIONS ###
         **IDENTITY & PROTOCOL**
@@ -137,7 +139,9 @@ def get_admin_ai_response(history: list):
         # Builds message chain
         messages = [{"role": "system", "content": system_prompt}]
         for msg in history:
-            messages.append({"role": msg.role, "content": msg.content})
+            role = msg.get('role') if isinstance(msg, dict) else getattr(msg, 'role', 'user')
+            content = msg.get('content') if isinstance(msg, dict) else getattr(msg, 'content', '')
+            messages.append({"role": role, "content": content})
 
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
