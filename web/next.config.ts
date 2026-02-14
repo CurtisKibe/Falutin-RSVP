@@ -4,13 +4,22 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'cdn.sanity.io', // Allow Sanity images
+        hostname: 'cdn.sanity.io', 
       },
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com', // Allow Unsplash images
+        hostname: 'images.unsplash.com', 
       },
     ],
+  },
+  
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: '/api', 
+      },
+    ];
   },
 };
 
