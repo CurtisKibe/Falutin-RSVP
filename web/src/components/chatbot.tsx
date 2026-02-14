@@ -16,7 +16,6 @@ export default function ChatBot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   
-  // Auto-scrolls to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -25,34 +24,38 @@ export default function ChatBot() {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
-    // 1. Adds User Message Locally
     const userMsgObj: Message = { role: "user", text: input };
-    const newHistory = [...messages, userMsgObj];
+    const newMessages = [...messages, userMsgObj];
     
-    setMessages(newHistory);
+    setMessages(newMessages);
     setInput("");
     setLoading(true);
 
     try {
-      // 2. Prepares History for Backend
-      const apiHistory = newHistory.map(m => ({
-        role: m.role === "bot" ? "assistant" : "user",
-        content: m.text
-      }));
+      // 1. Filter out any empty messages before sending to API
+      const apiHistory = newMessages
+        .filter(m => m.text && m.text.trim() !== "")
+        .map(m => ({
+          role: m.role === "bot" ? "assistant" : "user",
+          content: m.text
+        }));
 
-      // 3. Sends History to Backend
       const res = await fetch('/api/chat', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: apiHistory }), 
       });
       
+      if (!res.ok) throw new Error("Server responded with an error");
+      
       const data = await res.json();
       
-      // 4. Adds AI Response
-      setMessages((prev) => [...prev, { role: "bot", text: data.reply }]);
+      // 2. FIXED: Changed data.reply to data.response to match your index.py
+      const aiText = data.response || data.reply || "I'm lost for words. Try again?";
+      
+      setMessages((prev) => [...prev, { role: "bot", text: aiText }]);
     } catch (err) {
       console.error("Chat Error:", err);
       setMessages((prev) => [...prev, { role: "bot", text: "Cut! 🎬 Something went wrong. Try again." }]);
@@ -63,26 +66,23 @@ export default function ChatBot() {
 
   return (
     <>
-      {/* 1. THE FLOATING BUTTON */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 bg-yellow-500 text-black p-4 rounded-full shadow-2xl hover:scale-110 transition-transform z-50 border-2 border-black group"
         >
-          {/* Animated Clapperboard */}
           <Clapperboard className="w-8 h-8 group-hover:-rotate-12 transition-transform" />
         </button>
       )}
 
-      {/* 2. THE CHAT WINDOW */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-80 md:w-96 h-125 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans">
+        <div className="fixed bottom-6 right-6 w-80 md:w-96 h-[500px] bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans">
           
           {/* Header */}
           <div className="bg-yellow-500 p-4 flex justify-between items-center text-black">
             <div className="flex items-center gap-2">
               <Clapperboard className="w-5 h-5" />
-              <h3 className="font-bold uppercase tracking-wider">Falutin Box Office</h3>
+              <h3 className="font-bold uppercase tracking-wider text-xs">Falutin Box Office</h3>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:bg-black/10 p-1 rounded">
               <X className="w-5 h-5" />
@@ -101,13 +101,12 @@ export default function ChatBot() {
                     msg.role === "user"
                       ? "bg-yellow-500 text-black font-medium"
                       : "bg-neutral-800 text-gray-200 border border-neutral-700"
-                  } dangerously-set-html`}
+                  }`}
                   dangerouslySetInnerHTML={{ __html: msg.text }}
                 />
               </div>
             ))}
             
-            {/* Loading Indicator */}
             {loading && (
               <div className="flex justify-start">
                 <div className="bg-neutral-800 p-3 rounded-xl flex gap-2 items-center text-xs text-gray-400">
