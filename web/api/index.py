@@ -1,15 +1,20 @@
 import os
 import logging
+import traceback 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+
+# --- GLOBAL ERROR TRACKER ---
+startup_error = None
 
 try:
     from chat_service import get_ai_response, get_admin_ai_response
     from email_service import send_ticket_email
     from mpesa import initiate_stk_push 
-except ImportError as e:
-    print(f"❌ Import Error: {e}")
+except Exception as e:
+    startup_error = f"CRITICAL STARTUP ERROR: {str(e)}\n\n{traceback.format_exc()}"
+    print(f"❌ {startup_error}")
 
 load_dotenv()
 app = Flask(__name__)
@@ -19,25 +24,47 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("FalutinAPI")
 
-# --- ROUTE 1: HEALTH ---
+# --- ROUTE 1: HEALTH (DIAGNOSTICS) ---
 @app.route('/api/health', methods=['GET'])
 def health():
+    if startup_error:
+        return jsonify({"status": "critical_error", "details": startup_error}), 500
     return jsonify({"status": "ok", "message": "Falutin Python Engine is Online 🟢"}), 200
 
 # --- ROUTE 2: CHAT ---
-@app.route('/api/chat', methods=['POST'])
+@app.route('/api/chat', methods=['POST', 'OPTIONS']) 
 def chat_route():
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+
+    # 1. Safety Check: Did imports fail?
+    if startup_error:
+        return jsonify({"error": "Server Startup Failed", "details": startup_error}), 500
+
+    # 2. Runs Chat Logic
     try:
         data = request.json
+        # Checks if functions exist before calling them
+        if 'get_admin_ai_response' not in globals() or 'get_ai_response' not in globals():
+             return jsonify({"error": "Chat functions not loaded due to import errors"}), 500
+
         if data.get('isAdmin'):
             return jsonify({"response": get_admin_ai_response(data.get('history', []))})
-        return jsonify({"response": get_ai_response(data.get('history', []), data.get('context', ''))})
+            
+        # Ensures context is passed safely
+        context = data.get('context', '')
+        return jsonify({"response": get_ai_response(data.get('history', []), context)})
+        
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Chat Error: {traceback.format_exc()}")
+        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
 # --- ROUTE 3: EMAIL ---
 @app.route('/api/email', methods=['POST'])
 def email_route():
+    if startup_error:
+        return jsonify({"error": "Server Startup Failed", "details": startup_error}), 500
+        
     try:
         data = request.json
         success = send_ticket_email(data.get('email'), data.get('movie'), data.get('date'), data.get('ticketId'), data.get('poster'))
@@ -48,6 +75,9 @@ def email_route():
 # --- ROUTE 4: INITIATE PAYMENT ---
 @app.route('/api/pay', methods=['POST'])
 def pay_route():
+    if startup_error:
+        return jsonify({"error": "Server Startup Failed", "details": startup_error}), 500
+
     try:
         data = request.json
         phone = data.get('phone')
@@ -71,9 +101,6 @@ def mpesa_callback():
     try:
         data = request.json
         logger.info(f"💰 M-Pesa Callback Received: {data}")
-        
-        # HERE you usually save to database (Supabase)
-        # For now, we just log it to confirm it works
         
         return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"}), 200
     except Exception as e:
