@@ -20,47 +20,56 @@ def get_mpesa_token():
     """Generates a temporary access token from Safaricom"""
     if not CONSUMER_KEY or not CONSUMER_SECRET:
         raise ValueError("M-Pesa Keys missing in .env")
-        
-    auth_string = f"{CONSUMER_KEY}:{CONSUMER_SECRET}"
-    encoded_auth = base64.b64encode(auth_string.encode()).decode()
-    
-    headers = {"Authorization": f"Basic {encoded_auth}"}
-    response = requests.get(AUTH_URL, headers=headers)
-    return response.json().get("access_token")
 
-def trigger_stk_push(phone_number: str, amount: int, reference: str):
+    try:    
+        auth_string = f"{CONSUMER_KEY}:{CONSUMER_SECRET}"
+        encoded_auth = base64.b64encode(auth_string.encode()).decode()
+    
+        headers = {"Authorization": f"Basic {encoded_auth}"}
+        response = requests.get(AUTH_URL, headers=headers)
+        response.raise_for_status()
+        return response.json().get("access_token")
+    except Exception as e:
+        print(f"Error getting M-Pesa Token: {e}")
+        return None
+
+def initiate_stk_push(phone_number: str, amount: int, reference: str):
     """Triggers the PIN prompt on the user's phone"""
-    token = get_mpesa_token()
+    try:
+        token = get_mpesa_token()
     
-    # 1. Formats Timestamp (YYYYMMDDHHmmss)
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        # 1. Formats Timestamp (YYYYMMDDHHmmss)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     
-    # 2. Generates Password (Shortcode + Passkey + Timestamp)
-    password_str = f"{BUSINESS_SHORTCODE}{PASSKEY}{timestamp}"
-    password = base64.b64encode(password_str.encode()).decode()
+        # 2. Generates Password (Shortcode + Passkey + Timestamp)
+        password_str = f"{BUSINESS_SHORTCODE}{PASSKEY}{timestamp}"
+        password = base64.b64encode(password_str.encode()).decode()
     
-    # 3. Formats Phone Number (Must be 254...)
-    if phone_number.startswith("0"):
-        phone_number = "254" + phone_number[1:]
+        # 3. Formats Phone Number (Must be 254...)
+        if phone_number.startswith("0"):
+            phone_number = "254" + phone_number[1:]
     
-    payload = {
-        "BusinessShortCode": BUSINESS_SHORTCODE,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": amount,
-        "PartyA": phone_number,     # Customer Phone
-        "PartyB": BUSINESS_SHORTCODE, # Your Paybill
-        "PhoneNumber": phone_number,
-        "CallBackURL": "https://falutin-rsvp.vercel.app/api/mpesa/callback",
-        "AccountReference": reference,
-        "TransactionDesc": "Screening Reservation"
-    }
+        payload = {
+            "BusinessShortCode": BUSINESS_SHORTCODE,
+            "Password": password,
+            "Timestamp": timestamp,
+            "TransactionType": "CustomerPayBillOnline",
+            "Amount": amount,
+            "PartyA": phone_number,     # Customer Phone
+            "PartyB": BUSINESS_SHORTCODE, # Your Paybill
+            "PhoneNumber": phone_number,
+            "CallBackURL": "https://falutin-rsvp.vercel.app/api/mpesa/callback",
+            "AccountReference": reference,
+            "TransactionDesc": "Screening Reservation"
+        }
     
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
     
-    response = requests.post(STK_PUSH_URL, json=payload, headers=headers)
-    return response.json()
+        response = requests.post(STK_PUSH_URL, json=payload, headers=headers)
+        return response.json()
+    
+    except Exception as e:
+        return {"error": str(e)}
