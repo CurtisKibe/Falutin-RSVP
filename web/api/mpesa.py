@@ -52,7 +52,7 @@ def trigger_stk_push(phone_number: str, amount: int, reference: str):
         "PartyA": phone_number,     # Customer Phone
         "PartyB": BUSINESS_SHORTCODE, # Your Paybill
         "PhoneNumber": phone_number,
-        "CallBackURL": "https://falutin-rsvp.vercel.app/api/mpesa/callback"
+        "CallBackURL": "https://falutin-rsvp.vercel.app/api/mpesa/callback",
         "AccountReference": reference,
         "TransactionDesc": "Screening Reservation"
     }

@@ -183,7 +183,7 @@ export default function HomePage() {
                 &copy; {new Date().getFullYear()} The Falutin Family. All rights reserved.
             </p>
             {/* ADMIN LINK */}
-            <Link href="/admin/login" className="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-yellow-500 transition-colors uppercase tracking-widest">
+            <Link href="/admin" className="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-yellow-500 transition-colors uppercase tracking-widest">
                 <Lock className="w-3 h-3" /> Admin Access
             </Link>
         </div>
