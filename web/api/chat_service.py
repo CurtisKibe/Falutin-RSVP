@@ -64,7 +64,6 @@ def get_ai_response(history: list, movie_context: str):
             role = msg.get('role') if isinstance(msg, dict) else getattr(msg, 'role', 'user')
             content = msg.get('content') if isinstance(msg, dict) else getattr(msg, 'content', '')
             
-            # 👇 ONLY add the message if it actually has text!
             if content and str(content).strip():
                 messages.append({"role": role, "content": content})
 
@@ -147,7 +146,6 @@ def get_admin_ai_response(history: list):
             role = msg.get('role') if isinstance(msg, dict) else getattr(msg, 'role', 'user')
             content = msg.get('content') if isinstance(msg, dict) else getattr(msg, 'content', '')
             
-            # 👇 ONLY add the message if it actually has text!
             if content and str(content).strip():
                 messages.append({"role": role, "content": content})
 
