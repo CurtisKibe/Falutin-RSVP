@@ -59,11 +59,14 @@ def get_ai_response(history: list, movie_context: str):
         # Builds the message chain
         messages = [{"role": "system", "content": system_prompt}]
         
-        # Appends history (Fixed for Flask Dictionary format)
+        # Appends history (Safe version that skips empty messages)
         for msg in history:
             role = msg.get('role') if isinstance(msg, dict) else getattr(msg, 'role', 'user')
             content = msg.get('content') if isinstance(msg, dict) else getattr(msg, 'content', '')
-            messages.append({"role": role, "content": content})
+            
+            # 👇 ONLY add the message if it actually has text!
+            if content and str(content).strip():
+                messages.append({"role": role, "content": content})
 
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
@@ -138,10 +141,15 @@ def get_admin_ai_response(history: list):
 
         # Builds message chain
         messages = [{"role": "system", "content": system_prompt}]
+        
+        # Appends history (Safe version that skips empty messages)
         for msg in history:
             role = msg.get('role') if isinstance(msg, dict) else getattr(msg, 'role', 'user')
             content = msg.get('content') if isinstance(msg, dict) else getattr(msg, 'content', '')
-            messages.append({"role": role, "content": content})
+            
+            # 👇 ONLY add the message if it actually has text!
+            if content and str(content).strip():
+                messages.append({"role": role, "content": content})
 
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile", 
