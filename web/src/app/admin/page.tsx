@@ -1,75 +1,28 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { 
-  LayoutDashboard, Ticket, Clapperboard, Users, BarChart3, 
-  RadioTower, Bell, Home, Film, Image as ImageIcon, 
-  LogOut, ExternalLink, DollarSign, AlertCircle, RefreshCw, Trophy,
-  type LucideIcon, CheckCircle, XCircle, Search
-} from "lucide-react";
-import AdminChatBot from "@/components/adminchatbot"; 
+import { supabase } from "@/lib/supabase"; 
+import AdminChatBot from "@/components/adminchatbot";
+import { useEffect, useState, useCallback } from "react";
+import { LayoutDashboard, Ticket, Clapperboard, Users, BarChart3, RadioTower, Bell, Home, Film, Image as ImageIcon, LogOut, ExternalLink, DollarSign, AlertCircle, RefreshCw, Trophy, type LucideIcon, CheckCircle, XCircle, Search, UserCog } from "lucide-react";
 
-// --- CONFIG ---
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-// --- TYPES ---
 type AdminView = 'dashboard' | 'manifest' | 'studio' | 'talent' | 'dailies' | 'broadcast' | 'notifications';
 
-interface VoteStat {
-    title: string;
-    count: number;
-    percentage: number;
-}
-
-interface RecentVote {
-    id: number;
-    movie_choice: string;
-    created_at: string;
-    user_id: string;
-}
-
-interface ReservationData {
-    id: number;
-    movie_title: string;
-    name: string;
+interface Profile {
+    id: string;
     email: string;
-    amount: number;
-    status: string;
+    full_name: string;
+    role: 'admin' | 'member' | 'talent';
     created_at: string;
 }
 
-interface SidebarItemProps {
-  icon: LucideIcon;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  badge?: number;
-}
-
-interface ExternalLinkItemProps {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-}
-
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  icon: LucideIcon;
-  color: string;
-}
-
-interface PlaceholderViewProps {
-  title: string;
-  desc: string;
-  icon: LucideIcon;
-}
+interface VoteStat { title: string; count: number; percentage: number; }
+interface RecentVote { id: number; movie_choice: string; created_at: string; user_id: string; }
+interface ReservationData { id: number; movie_title: string; name: string; email: string; amount: number; status: string; created_at: string; }
+interface SidebarItemProps { icon: LucideIcon; label: string; active: boolean; onClick: () => void; badge?: number; }
+interface ExternalLinkItemProps { href: string; icon: LucideIcon; label: string; }
+interface StatCardProps { label: string; value: string | number; icon: LucideIcon; color: string; }
+interface PlaceholderViewProps { title: string; desc: string; icon: LucideIcon; }
 
 const MOCK_NOTIFICATIONS = [
   { id: 1, type: 'sale', msg: 'New Ticket Sold: Pulp Fiction (Seat A12)', time: '2 mins ago', color: 'text-green-400' },
@@ -78,84 +31,87 @@ const MOCK_NOTIFICATIONS = [
 ];
 
 export default function AdminDashboard() {
-  const router = useRouter();
+  // 🗑️ Deleted: const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<AdminView>('dashboard');
   
-  // Stats
   const [stats] = useState({ revenue: 12500, members: 142, ticketsSold: 85, unreadAlerts: 3 });
 
-  // Data States
   const [voteStats, setVoteStats] = useState<VoteStat[]>([]);
-  const [recentVotes, setRecentVotes] = useState<RecentVote[]>([]);
+  const [recentVotes, setRecentVotes] = useState<RecentVote[]>([]); 
   const [totalVotes, setTotalVotes] = useState(0);
   
-  // Manifest States
   const [reservations, setReservations] = useState<ReservationData[]>([]);
+  const [members, setMembers] = useState<Profile[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  // 1. AUTH CHECK
   useEffect(() => {
     async function checkAdmin() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) router.push("/login");
-      setLoading(false);
+      // Uses getSession() for the most up-to-date data
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      
+      if (!user || user.user_metadata?.role !== "admin") {
+        console.warn("Unauthorized or stale session detected. Redirecting.");
+        window.location.href = "/login"; // Hard redirect out
+      } else {
+        setLoading(false);
+      }
     }
     checkAdmin();
-  }, [router]);
+  }, []); // Empty dependency array is perfectly fine here
 
-  // 2. FETCHES VOTES
   const fetchVoteData = useCallback(async () => {
     setLoadingData(true);
     const { data: votes, error } = await supabase.from('votes').select('*').order('created_at', { ascending: false });
-    
     if (!error && votes) {
         setTotalVotes(votes.length);
         setRecentVotes(votes.slice(0, 5)); 
-
         const tally: Record<string, number> = {};
-        votes.forEach((v) => {
-            tally[v.movie_choice] = (tally[v.movie_choice] || 0) + 1;
-        });
-
+        votes.forEach((v) => { tally[v.movie_choice] = (tally[v.movie_choice] || 0) + 1; });
         const statsArray: VoteStat[] = Object.keys(tally).map(key => ({
             title: key,
             count: tally[key],
             percentage: Math.round((tally[key] / votes.length) * 100)
         })).sort((a, b) => b.count - a.count);
-
         setVoteStats(statsArray);
     }
     setLoadingData(false);
   }, []);
 
-  // 3. FETCH MANIFEST
   const fetchManifestData = useCallback(async () => {
     setLoadingData(true);
-    const { data, error } = await supabase
-        .from('reservations')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-    if (!error && data) {
-        setReservations(data);
-    }
+    const { data, error } = await supabase.from('reservations').select('*').order('created_at', { ascending: false });
+    if (!error && data) { setReservations(data); }
     setLoadingData(false);
   }, []);
 
-  // 4. VIEW SWITCHER
+  const fetchTalentData = useCallback(async () => {
+    setLoadingData(true);
+    const { data, error } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
+    if (!error && data) { setMembers(data); }
+    setLoadingData(false);
+  }, []);
+
+  const handleUpdateRole = async (userId: string, newRole: string) => {
+    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+    if (error) alert("Action failed: " + error.message);
+    else fetchTalentData();
+  };
+
   const handleViewChange = (view: AdminView) => {
     setActiveView(view);
     if (view === 'dailies') fetchVoteData();
     if (view === 'manifest') fetchManifestData();
+    if (view === 'talent') fetchTalentData();
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/");
+    window.location.href = "/login"; // Hard redirect on logout
   };
 
-  if (loading) return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">Loading Studio...</div>;
+  if (loading) return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white font-mono tracking-widest uppercase animate-pulse">Authenticating Admin...</div>;
 
   return (
     <div className="flex h-screen bg-neutral-950 text-white font-sans overflow-hidden">
@@ -260,7 +216,6 @@ export default function AdminDashboard() {
                           <RefreshCw className={`w-4 h-4 ${loadingData ? 'animate-spin' : ''}`} /> Refresh Data
                       </button>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="bg-neutral-900 border border-white/10 p-6 rounded-2xl">
                           <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-2">Total Votes Cast</p>
@@ -330,7 +285,7 @@ export default function AdminDashboard() {
               </div>
            )}
 
-          {/* VIEW: MANIFEST (RESERVATIONS DATA) */}
+          {/* VIEW: MANIFEST */}
           {activeView === 'manifest' && (
             <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="flex justify-between items-center">
@@ -346,16 +301,16 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                <div className="bg-neutral-900 border border-white/10 rounded-2xl overflow-hidden">
+                <div className="bg-neutral-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-black/40 text-gray-400 uppercase tracking-widest text-xs border-b border-white/10">
+                            <thead className="bg-black/40 text-gray-400 uppercase tracking-widest text-[10px] border-b border-white/10">
                                 <tr>
-                                    <th className="p-4 font-medium">Status</th>
-                                    <th className="p-4 font-medium">Guest</th>
-                                    <th className="p-4 font-medium">Movie</th>
-                                    <th className="p-4 font-medium">Date</th>
-                                    <th className="p-4 font-medium text-right">Amount</th>
+                                    <th className="p-4 font-bold">Status</th>
+                                    <th className="p-4 font-bold">Guest</th>
+                                    <th className="p-4 font-bold">Movie</th>
+                                    <th className="p-4 font-bold">Date</th>
+                                    <th className="p-4 font-bold text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
@@ -364,18 +319,18 @@ export default function AdminDashboard() {
                                         <tr key={reservation.id} className="hover:bg-white/5 transition-colors group">
                                             <td className="p-4">
                                                 {reservation.status === 'failed' || reservation.status === 'cancelled' ? (
-                                                    <span className="inline-flex items-center gap-1 text-red-400 bg-red-900/20 px-2 py-1 rounded text-xs font-bold border border-red-500/20">
+                                                    <span className="inline-flex items-center gap-1 text-red-400 bg-red-900/20 px-2 py-1 rounded text-[10px] font-black uppercase border border-red-500/20">
                                                         <XCircle className="w-3 h-3" /> {reservation.status}
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 text-green-400 bg-green-900/20 px-2 py-1 rounded text-xs font-bold border border-green-500/20">
+                                                    <span className="inline-flex items-center gap-1 text-green-400 bg-green-900/20 px-2 py-1 rounded text-[10px] font-black uppercase border border-green-500/20">
                                                         <CheckCircle className="w-3 h-3" /> {reservation.status || 'Confirmed'}
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="p-4">
                                                 <p className="font-bold text-white">{reservation.name || "Guest"}</p>
-                                                <p className="text-xs text-gray-500">{reservation.email}</p>
+                                                <p className="text-[10px] text-gray-500 font-mono">{reservation.email}</p>
                                             </td>
                                             <td className="p-4 text-gray-300">{reservation.movie_title}</td>
                                             <td className="p-4 text-gray-500 font-mono text-xs">
@@ -399,8 +354,74 @@ export default function AdminDashboard() {
                 </div>
             </div>
           )}
+
+          {/* VIEW: ROLE MANAGEMENT */}
+          {activeView === 'talent' && (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <UserCog className="w-6 h-6 text-yellow-500" />
+                    <h3 className="text-2xl font-bold">Talent & Crew</h3>
+                </div>
+                <button onClick={fetchTalentData} className="flex items-center gap-2 text-sm bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-colors">
+                  <RefreshCw className={`w-4 h-4 ${loadingData ? 'animate-spin' : ''}`} /> Sync Database
+                </button>
+              </div>
+
+              <div className="bg-neutral-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-black/40 text-gray-400 uppercase tracking-widest text-[10px] border-b border-white/10">
+                    <tr>
+                      <th className="p-4 font-bold">Crew Member</th>
+                      <th className="p-4 font-bold">Email</th>
+                      <th className="p-4 font-bold">Access Level</th>
+                      <th className="p-4 font-bold text-right">Promote/Demote</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {members.map((member) => (
+                      <tr key={member.id} className="hover:bg-white/5 transition-colors group">
+                        <td className="p-4">
+                           <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center border border-white/10 text-[10px] font-bold">
+                                 {member.full_name?.substring(0,2).toUpperCase()}
+                              </div>
+                              <span className="font-bold text-white">{member.full_name || "New Recruit"}</span>
+                           </div>
+                        </td>
+                        <td className="p-4 text-gray-400 font-mono text-xs">{member.email}</td>
+                        <td className="p-4">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border tracking-tighter ${
+                            member.role === 'admin' ? 'text-yellow-500 border-yellow-500/20 bg-yellow-500/5' :
+                            member.role === 'talent' ? 'text-purple-400 border-purple-400/20 bg-purple-400/5' :
+                            'text-blue-400 border-blue-400/20 bg-blue-400/5'
+                          }`}>
+                            {member.role || 'Member'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <select 
+                            value={member.role}
+                            onChange={(e) => handleUpdateRole(member.id, e.target.value)}
+                            className="bg-black border border-white/10 text-[10px] rounded-lg px-2 py-1 outline-none focus:border-yellow-500 cursor-pointer text-gray-400 hover:text-white transition-colors"
+                          >
+                            <option value="member">Member</option>
+                            <option value="talent">Talent</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                    {members.length === 0 && (
+                        <tr><td colSpan={4} className="p-10 text-center text-gray-500">No crew data found in archive.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           
-          {/* VIEW: STUDIO (EMBEDDED IFRAME) */}
+          {/* VIEW: STUDIO */}
           {activeView === 'studio' && (
              <div className="w-full h-full bg-neutral-950 flex flex-col">
                 <iframe 
@@ -411,7 +432,6 @@ export default function AdminDashboard() {
              </div>
           )}
 
-          {activeView === 'talent' && <PlaceholderView title="Talent Management" desc="Member database, ban tools, and persona reveals." icon={Users} />}
           {activeView === 'broadcast' && <PlaceholderView title="Broadcast" desc="Email blasts and chat moderation." icon={RadioTower} />}
           {activeView === 'notifications' && (
              <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6">
@@ -445,8 +465,6 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-// --- SUBCOMPONENTS ---
 
 function SidebarItem({ icon: Icon, label, active, onClick, badge }: SidebarItemProps) {
     return (

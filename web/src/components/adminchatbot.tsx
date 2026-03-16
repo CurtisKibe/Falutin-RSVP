@@ -23,7 +23,7 @@ export default function AdminChatBot() {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return; 
 
     const userMsgObj: Message = { role: "user", text: input };
     const newHistory = [...messages, userMsgObj];
@@ -33,11 +33,15 @@ export default function AdminChatBot() {
     setLoading(true);
 
     try {
-      const apiHistory = newHistory.map(m => ({
-        role: m.role === "bot" ? "assistant" : "user",
-        content: m.text
-      }));
+      // 1. Filters out empty messages and maps to Assistant role
+      const apiHistory = newHistory
+        .filter(m => m.text && m.text.trim() !== "")
+        .map(m => ({
+          role: m.role === "bot" ? "assistant" : "user",
+          content: m.text
+        }));
 
+      // 2. Fetches from the relative production path
       const res = await fetch('/api/chat', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,11 +51,16 @@ export default function AdminChatBot() {
           }), 
       });
       
+      if (!res.ok) throw new Error("Server communication error");
+
       const data = await res.json();
-      setMessages((prev) => [...prev, { role: "bot", text: data.reply }]);
+
+      const aiText = data.response || data.reply || "Connection to the archive lost.";
+      
+      setMessages((prev) => [...prev, { role: "bot", text: aiText }]);
     } catch (err) {
       console.error("Admin Chat Error:", err);
-      setMessages((prev) => [...prev, { role: "bot", text: "Production connection failed." }]);
+      setMessages((prev) => [...prev, { role: "bot", text: "Production connection failed. Check server logs." }]);
     } finally {
       setLoading(false);
     }
@@ -65,27 +74,26 @@ export default function AdminChatBot() {
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 bg-yellow-500 text-black p-4 rounded-full shadow-2xl hover:bg-yellow-400 hover:scale-110 transition-transform z-50 border-2 border-black group"
         >
-          {/* Film Icon with slight rotation effect */}
-          <Film className="w-8 h-8 group-hover:animate-spin-slow transition-transform" />
+          <Film className="w-8 h-8 group-hover:rotate-12 transition-transform" />
         </button>
       )}
 
       {/* CHAT WINDOW */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-96 h-150 bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans">
+        <div className="fixed bottom-6 right-6 w-80 md:w-96 h-[500px] bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans">
           
-          {/* Header: THE PRODUCTION STUDIO */}
+          {/* Header */}
           <div className="bg-yellow-500 p-4 flex justify-between items-center text-black border-b border-black/10">
             <div className="flex items-center gap-2">
               <Film className="w-5 h-5" />
-              <h3 className="font-bold uppercase tracking-wider text-xs">The Production Studio</h3>
+              <h3 className="font-bold uppercase tracking-wider text-[10px]">The Production Studio</h3>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:bg-black/10 p-1 rounded">
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Messages */}
+          {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/40">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -94,7 +102,7 @@ export default function AdminChatBot() {
                     msg.role === "user"
                       ? "bg-yellow-500 text-black font-medium" 
                       : "bg-neutral-800 text-gray-300 border border-neutral-700" 
-                  } dangerously-set-html`}
+                  }`}
                   dangerouslySetInnerHTML={{ __html: msg.text }}
                 />
               </div>
@@ -111,7 +119,7 @@ export default function AdminChatBot() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Input Area */}
           <form onSubmit={handleSend} className="p-3 bg-neutral-900 border-t border-neutral-800 flex gap-2">
             <input
               type="text"
