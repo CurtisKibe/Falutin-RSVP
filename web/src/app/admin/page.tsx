@@ -31,7 +31,6 @@ const MOCK_NOTIFICATIONS = [
 ];
 
 export default function AdminDashboard() {
-  // 🗑️ Deleted: const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<AdminView>('dashboard');
   
@@ -47,19 +46,18 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function checkAdmin() {
-      // Uses getSession() for the most up-to-date data
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       
       if (!user || user.user_metadata?.role !== "admin") {
         console.warn("Unauthorized or stale session detected. Redirecting.");
-        window.location.href = "/login"; // Hard redirect out
+        window.location.href = "/login"; 
       } else {
         setLoading(false);
       }
     }
     checkAdmin();
-  }, []); // Empty dependency array is perfectly fine here
+  }, []); 
 
   const fetchVoteData = useCallback(async () => {
     setLoadingData(true);
@@ -108,7 +106,7 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/login"; // Hard redirect on logout
+    window.location.href = "/login"; 
   };
 
   if (loading) return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white font-mono tracking-widest uppercase animate-pulse">Authenticating Admin...</div>;
@@ -421,14 +419,38 @@ export default function AdminDashboard() {
             </div>
           )}
           
-          {/* VIEW: STUDIO */}
+          {/* VIEW: STUDIO (WITH FALLBACK ESCAPE HATCH) */}
           {activeView === 'studio' && (
-             <div className="w-full h-full bg-neutral-950 flex flex-col">
-                <iframe 
-                  src="/studio" 
-                  className="w-full flex-1 border-none"
-                  title="Sanity Studio"
-                />
+             <div className="w-full h-full bg-neutral-950 flex flex-col relative">
+                
+                {/* The Fallback Banner */}
+                <div className="bg-yellow-500/10 border-b border-yellow-500/20 p-4 flex justify-between items-center z-10 shrink-0">
+                  <div className="flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-yellow-500" />
+                      <div>
+                        <p className="text-sm font-bold text-yellow-500">Studio Connection</p>
+                        <p className="text-xs text-yellow-200/70">If the interface below is blank or login fails, use the direct portal.</p>
+                      </div>
+                  </div>
+                  <Link 
+                    href="/studio" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-yellow-500 text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-yellow-400 transition-transform hover:scale-105 shadow-lg shadow-yellow-500/20"
+                  >
+                      Open Studio in New Tab <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+
+                {/* The Iframe */}
+                <div className="flex-1 w-full bg-black relative">
+                  <iframe 
+                    src="/studio" 
+                    className="absolute inset-0 w-full h-full border-none"
+                    title="Sanity Studio"
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                  />
+                </div>
              </div>
           )}
 

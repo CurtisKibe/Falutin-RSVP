@@ -27,11 +27,13 @@ export default function LoginPage() {
         });
         if (error) throw error;
 
+        // Session Check
         const { data: { session } } = await supabase.auth.getSession();
         const userRole = session?.user?.user_metadata?.role;
         
         console.log("Logged in as:", userRole);
 
+        // Hard redirect to clear any cached states
         if (userRole === "admin") {
           window.location.href = "/admin";
         } else {
@@ -67,7 +69,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 relative">
       
-      {/* ✅ NEW: The "FALUTIN FAM" Home Button */}
+      {/* "FALUTIN FAM" Home Button */}
       <Link 
         href="/" 
         className="absolute top-8 left-8 flex items-center gap-2 text-yellow-500 hover:text-white transition-colors text-sm uppercase tracking-widest font-bold group"
@@ -76,7 +78,7 @@ export default function LoginPage() {
         FALUTIN FAM
       </Link>
 
-      {/* ✅ NEW: Centered, Minimalist Form Card */}
+      {/* Centered, Minimalist Form Card */}
       <div className="w-full max-w-md bg-neutral-900/80 border border-white/10 p-8 md:p-10 rounded-3xl shadow-2xl backdrop-blur-md mt-16 md:mt-0">
         
         <div className="mb-10 text-center">

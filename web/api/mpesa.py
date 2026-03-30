@@ -1,13 +1,15 @@
 import os
-import base64
 import requests
+import base64
 from datetime import datetime
 
+# CONFIGURATION
 CONSUMER_KEY = os.environ.get("MPESA_CONSUMER_KEY")
 CONSUMER_SECRET = os.environ.get("MPESA_CONSUMER_SECRET")
 PASSKEY = os.environ.get("MPESA_PASSKEY")
 BUSINESS_SHORTCODE = "174379" # Safaricom Test Paybill
 
+# URLs
 AUTH_URL = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
 STK_PUSH_URL = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
@@ -48,6 +50,7 @@ def initiate_stk_push(phone_number: str, amount: int, reference: str = "FalutinT
         password_str = f"{BUSINESS_SHORTCODE}{PASSKEY}{timestamp}"
         password = base64.b64encode(password_str.encode()).decode()
         
+        # Formats Phone Number (Must be 254...)
         phone_number = str(phone_number).strip()
         if phone_number.startswith("0"):
             phone_number = "254" + phone_number[1:]
@@ -73,8 +76,10 @@ def initiate_stk_push(phone_number: str, amount: int, reference: str = "FalutinT
             "Content-Type": "application/json"
         }
         
+        # Send the push with an 8-second timeout
         response = requests.post(STK_PUSH_URL, json=payload, headers=headers, timeout=8)
         
+        # If Safaricom rejects it, grab their exact text
         if not response.ok:
             error_msg = response.text
             print(f"Safaricom STK Error: {error_msg}")
